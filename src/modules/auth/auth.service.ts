@@ -12,6 +12,5 @@ export class AuthService {
         return 'login';
     }
 
-
 }
-module.exports = AuthService;
+
