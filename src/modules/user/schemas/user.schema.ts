@@ -6,13 +6,16 @@ export type UserDocument = User & Document;
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true })
-  name: string;
+  firstName: string;
 
-  @Prop({ unique: true })
-  email: string;
+  @Prop({ required: true })
+  lastName: string;
 
-  @Prop({ unique: true })
-  phone: string;
+  @Prop()
+  email?: string;
+
+  @Prop()
+  phone?: string;
 
   @Prop({ required: true })
   role: string;
@@ -24,3 +27,5 @@ export class User {
   is_verified: boolean;
 }
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ email: 1 }, { unique: true, sparse: true });
+UserSchema.index({ phone: 1 }, { unique: true, sparse: true });
