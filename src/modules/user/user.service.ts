@@ -52,4 +52,9 @@ export class UserService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
   }
+
+  async findAllByRole(role: string) {
+    return this.userModel.find({ role }).select('-password');
+  }
+
 }

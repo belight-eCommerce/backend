@@ -25,6 +25,9 @@ export class User {
 
   @Prop({ default: false })
   is_verified: boolean;
+
+  @Prop({ default: true })
+  isActive: boolean;
 }
 export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ email: 1 }, { unique: true, sparse: true });

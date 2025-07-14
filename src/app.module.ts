@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
@@ -9,6 +9,7 @@ import { ProductModule } from './modules/product/product.module';
 import { OrderModule } from './modules/order/order.module';
 import { CartModule } from './modules/cart/cart.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { SuperAdminSeederService } from './modules/user/super-admin-seeder.service';
 
 @Module({
   imports: [
@@ -20,7 +21,6 @@ import { PaymentModule } from './modules/payment/payment.module';
       }),
       inject: [ConfigService],
     }),
-    
     AuthModule,
     UserModule,
     ProductModule,
@@ -31,4 +31,10 @@ import { PaymentModule } from './modules/payment/payment.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+  constructor(private readonly superAdminSeeder: SuperAdminSeederService) {}
+
+  async onModuleInit() {
+    await this.superAdminSeeder.ensureSuperAdmin();
+  }
+}
