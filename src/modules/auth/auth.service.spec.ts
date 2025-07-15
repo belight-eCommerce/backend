@@ -1,100 +1,86 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import { ConflictException } from '@nestjs/common';
 
-jest.mock('bcrypt');
-
-describe('AuthService', () => {
-  let service: AuthService;
+describe('AuthController', () => {
+  let controller: AuthController;
+  let authService: AuthService;
   let userService: UserService;
-  let jwtService: JwtService;
+
+  const mockAuthService = {
+    login: jest.fn(),
+    register: jest.fn(),
+  };
 
   const mockUserService = {
     findByEmail: jest.fn(),
-    create: jest.fn(),
-  };
-
-  const mockJwtService = {
-    sign: jest.fn(),
+    findByPhone: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
       providers: [
-        AuthService,
+        { provide: AuthService, useValue: mockAuthService },
         { provide: UserService, useValue: mockUserService },
-        { provide: JwtService, useValue: mockJwtService },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    controller = module.get<AuthController>(AuthController);
+    authService = module.get<AuthService>(AuthService);
     userService = module.get<UserService>(UserService);
-    jwtService = module.get<JwtService>(JwtService);
 
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  describe('validateUser', () => {
-    it('should return user without password if credentials are valid', async () => {
-      const user = {
-        toObject: () => ({ email: 'test', password: 'hashed' }),
-        password: 'hashed',
-      };
-      mockUserService.findByEmail.mockResolvedValue(user);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-
-      const result = await service.validateUser('test', 'password');
-      expect(result).toEqual({ email: 'test' });
-    });
-
-    it('should return null if user not found', async () => {
-      mockUserService.findByEmail.mockResolvedValue(null);
-      const result = await service.validateUser('test', 'password');
-      expect(result).toBeNull();
-    });
-
-    it('should return null if password does not match', async () => {
-      const user = {
-        toObject: () => ({ email: 'test', password: 'hashed' }),
-        password: 'hashed',
-      };
-      mockUserService.findByEmail.mockResolvedValue(user);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-
-      const result = await service.validateUser('test', 'wrongpassword');
-      expect(result).toBeNull();
-    });
-  });
-
   describe('login', () => {
-    it('should return access_token', async () => {
-      const user = { _id: '1', email: 'test', role: 'user' };
-      mockJwtService.sign.mockReturnValue('jwt-token');
-      const result = await service.login(user as any);
-      expect(result).toEqual({ access_token: 'jwt-token' });
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        sub: user._id,
-        email: user.email,
-        role: user.role,
-      });
+    it('should call authService.login with req.user', async () => {
+      const user = { id: 1, email: 'test@test.com' };
+      const req = { user };
+      mockAuthService.login.mockResolvedValue({ access_token: 'token' });
+
+      const result = await controller.login(req as any);
+      expect(authService.login).toHaveBeenCalledWith(user);
+      expect(result).toEqual({ access_token: 'token' });
     });
   });
 
   describe('register', () => {
-    it('should hash password and call userService.create', async () => {
-      const dto = { email: 'test', password: 'plain' };
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
-      mockUserService.create.mockResolvedValue('user');
-      const result = await service.register(dto as any);
-      expect(bcrypt.hash).toHaveBeenCalledWith('plain', 10);
-      expect(mockUserService.create).toHaveBeenCalledWith({ ...dto, password: 'hashed' });
-      expect(result).toBe('user');
+    it('should throw if role is not buyer or seller', async () => {
+      const dto = { email: 'a@a.com', password: '123', role: 'admin' };
+      await expect(controller.register(dto as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should throw if email already exists', async () => {
+      const dto = { email: 'a@a.com', password: '123', role: 'buyer' };
+      mockUserService.findByEmail.mockResolvedValue({ id: 1 });
+      await expect(controller.register(dto as any)).rejects.toThrow(
+        'Email already exists',
+      );
+    });
+
+    it('should throw if phone already exists', async () => {
+      const dto = { email: 'a@a.com', phone: '123', password: '123', role: 'seller' };
+      mockUserService.findByEmail.mockResolvedValue(null);
+      mockUserService.findByPhone.mockResolvedValue({ id: 2 });
+      await expect(controller.register(dto as any)).rejects.toThrow(
+        'Phone number already exists',
+      );
+    });
+
+    it('should call authService.register if valid', async () => {
+      const dto = { email: 'a@a.com', phone: '123', password: '123', role: 'buyer' };
+      mockUserService.findByEmail.mockResolvedValue(null);
+      mockUserService.findByPhone.mockResolvedValue(null);
+      mockAuthService.register.mockResolvedValue({ id: 1, ...dto });
+
+      const result = await controller.register(dto as any);
+      expect(authService.register).toHaveBeenCalledWith(dto);
+      expect(result).toEqual({ id: 1, ...dto });
     });
   });
 });
