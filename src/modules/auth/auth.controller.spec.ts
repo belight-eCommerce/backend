@@ -74,4 +74,45 @@ describe('AuthController', () => {
       expect(result).toBe('registered');
     });
   });
+describe('register (role validation)', () => {
+  it('should throw ConflictException if role is missing', async () => {
+    const dto = { email: 'test@example.com', phone: '1234567890' };
+    await expect(controller.register(dto as any)).rejects.toThrow(ConflictException);
+  });
+
+  it('should throw ConflictException if role is not buyer or seller', async () => {
+    const dto = { email: 'test@example.com', phone: '1234567890', role: 'admin' };
+    await expect(controller.register(dto as any)).rejects.toThrow(ConflictException);
+  });
+
+  it('should allow registration if role is "buyer"', async () => {
+    const dto = { email: 'unique@example.com', phone: '1234567890', role: 'buyer' };
+    mockUserService.findByEmail.mockResolvedValue(null);
+    mockUserService.findByPhone.mockResolvedValue(null);
+    mockAuthService.register.mockResolvedValue('registered');
+    const result = await controller.register(dto as any);
+    expect(mockAuthService.register).toHaveBeenCalledWith(dto);
+    expect(result).toBe('registered');
+  });
+
+  it('should allow registration if role is "seller"', async () => {
+    const dto = { email: 'unique2@example.com', phone: '0987654321', role: 'seller' };
+    mockUserService.findByEmail.mockResolvedValue(null);
+    mockUserService.findByPhone.mockResolvedValue(null);
+    mockAuthService.register.mockResolvedValue('registered2');
+    const result = await controller.register(dto as any);
+    expect(mockAuthService.register).toHaveBeenCalledWith(dto);
+    expect(result).toBe('registered2');
+  });
+
+  it('should allow registration if role is "BUYER" (case-insensitive)', async () => {
+    const dto = { email: 'unique3@example.com', phone: '1112223333', role: 'BUYER' };
+    mockUserService.findByEmail.mockResolvedValue(null);
+    mockUserService.findByPhone.mockResolvedValue(null);
+    mockAuthService.register.mockResolvedValue('registered3');
+    const result = await controller.register(dto as any);
+    expect(mockAuthService.register).toHaveBeenCalledWith(dto);
+    expect(result).toBe('registered3');
+  });
+});
 });
