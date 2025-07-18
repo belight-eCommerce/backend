@@ -4,6 +4,15 @@ import { Model } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserDocument } from './schemas/user.schema';
+import * as bcrypt from 'bcrypt';
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 @Injectable()
 export class UserService {
@@ -12,6 +21,10 @@ export class UserService {
   ) {}
 
   async create(dto: CreateUserDto): Promise<User> {
+    if (dto.password) {
+      const salt = await bcrypt.genSalt();
+      dto.password = await bcrypt.hash(dto.password, salt);
+    }
     const created = new this.userModel(dto);
     return created.save();
   }
@@ -57,4 +70,35 @@ export class UserService {
     return this.userModel.find({ role }).select('-password');
   }
 
+  async findAdminsPaginated(
+    role: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedResult<User>> {
+    const filter = { role };
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .select('-password')
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.userModel.countDocuments(filter).exec(),
+    ]);
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
 }
+
+
+

@@ -24,6 +24,18 @@ export class AuthService {
     return null;
   }
 
+  async validateUserByPhone(
+    phone: string,
+    pass: string
+  ): Promise<Omit<UserDocument, 'password'> | null> {
+    const user = await this.usersService.findByPhone(phone);
+    if (user && await bcrypt.compare(pass, user.password)) {
+      const { password, ...result } = user.toObject();
+      return result;
+    }
+    return null;
+  }
+
   async login(user: Omit<UserDocument, 'password'>) {
     const payload = {
       sub:   user._id,
