@@ -21,10 +21,6 @@ export class UserService {
   ) {}
 
   async create(dto: CreateUserDto): Promise<User> {
-    if (dto.password) {
-      const salt = await bcrypt.genSalt();
-      dto.password = await bcrypt.hash(dto.password, salt);
-    }
     const created = new this.userModel(dto);
     return created.save();
   }
