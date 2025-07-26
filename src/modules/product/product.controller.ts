@@ -9,6 +9,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ParseObjectIdPipe } from '@nestjs/mongoose';
 import { PaginatedResult } from 'src/common/dto/pagination.dto';
 import { Product } from './schemas/product.schema';
+import { GetProductsQueryDto } from './dto/get-products-query.dto';
 
 @Controller('product')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -26,28 +27,13 @@ export class ProductController {
     return this.svc.createWithImages(dto, files, req.user.userId);
   }
 
+
   @Get()
   @Roles('buyer', 'seller', 'admin', 'super-admin')
   findAll(
-    @Query('search') search?: string,
-    @Query('category') category?: string,
-    @Query('minPrice') minPrice?: number,
-    @Query('maxPrice') maxPrice?: number,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'asc',
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
+    @Query() query: GetProductsQueryDto,
   ): Promise<PaginatedResult<Product>> {
-    return this.svc.findAll({
-      search,
-      category,
-      minPrice,
-      maxPrice,
-      sortBy,
-      sortOrder,
-      page,
-      limit,
-    });
+    return this.svc.findAll(query);
   }
 
   @Get(':id')

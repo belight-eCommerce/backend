@@ -6,6 +6,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './schemas/product.schema';
 import {ProductNotFoundException,ProductOwnershipException,ProductImageLimitException,} from '../../exceptions/product.exceptions';
 import { PaginatedResult, PaginationMeta } from '../../common/dto/pagination.dto';
+import { GetProductsQueryDto } from './dto/get-products-query.dto';
 
 @Injectable()
 export class ProductService {
@@ -30,19 +31,18 @@ export class ProductService {
     return this.repo.create({ ...dto, images: imageUrls }, ownerId);
   }
 
-  async findAll(query: {
-    search?: string;
-    category?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
-  }): Promise<PaginatedResult<Product>> {
-    const filter: any = {};
-    if (query.search) filter.name = { $regex: query.search, $options: 'i' };
-    if (query.category) filter.category = query.category;
+ async findAll(query: GetProductsQueryDto): Promise<PaginatedResult<Product>> {
+  
+    const filter: Record<string, any> = {};
+
+    if (query.search) {
+      filter.name = { $regex: query.search, $options: 'i' };
+    }
+
+    if (query.category) {
+      filter.category = query.category;
+    }
+
     if (query.minPrice || query.maxPrice) {
       filter.price = {};
       if (query.minPrice) filter.price.$gte = query.minPrice;
@@ -53,7 +53,7 @@ export class ProductService {
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
 
-    const sort: any = {};
+    const sort: Record<string, 1 | -1> = {};
     if (query.sortBy) {
       sort[query.sortBy] = query.sortOrder === 'desc' ? -1 : 1;
     }
@@ -66,6 +66,7 @@ export class ProductService {
 
     const totalPages = Math.ceil(total / limit);
     const meta: PaginationMeta = { total, page, limit, totalPages };
+
     return { data: items, meta };
   }
 
