@@ -17,24 +17,33 @@ export class AuthService {
     pass: string
   ): Promise<Omit<UserDocument, 'password'> | null> {
     const user = await this.usersService.findByEmail(email);
-    if (user && await bcrypt.compare(pass, user.password)) {
-      const { password, ...result } = user.toObject();
-      return result;
+
+    if (user) {
+      const match = await bcrypt.compare(pass, user.password);
+      if (match) {
+        const { password, ...result } = user.toObject();
+        return result;
+      }
     }
     return null;
   }
 
-  async validateUserByPhone(
+ async validateUserByPhone(
     phone: string,
     pass: string
   ): Promise<Omit<UserDocument, 'password'> | null> {
     const user = await this.usersService.findByPhone(phone);
-    if (user && await bcrypt.compare(pass, user.password)) {
-      const { password, ...result } = user.toObject();
-      return result;
+
+    if (user) {
+      const match = await bcrypt.compare(pass, user.password);
+      if (match) {
+        const { password, ...result } = user.toObject();
+        return result;
+      }
     }
     return null;
   }
+
 
   async login(user: Omit<UserDocument, 'password'>) {
     const payload = {
