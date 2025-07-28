@@ -10,7 +10,14 @@ import { ParseObjectIdPipe } from '@nestjs/mongoose';
 import { PaginatedResult } from 'src/common/dto/pagination.dto';
 import { Product } from './schemas/product.schema';
 import { GetProductsQueryDto } from './dto/get-products-query.dto';
+import {
+  ApiTags,ApiBearerAuth,ApiConsumes, ApiBody,ApiOperation,ApiResponse,
+ ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 
+@ApiTags('products')
+@ApiBearerAuth()
 @Controller('product')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ProductController {
@@ -19,6 +26,13 @@ export class ProductController {
   @Post()
   @Roles('seller', 'admin', 'super-admin')
   @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiOperation({ summary: 'Create a new product (with image upload)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Product data and images',
+    type: CreateProductDto,
+  })
+  @ApiResponse({ status: 201, description: 'Product created successfully' })
   create(
     @Body() dto: CreateProductDto,
     @UploadedFiles() files: any,
@@ -30,6 +44,14 @@ export class ProductController {
 
   @Get()
   @Roles('buyer', 'seller', 'admin', 'super-admin')
+  @ApiOperation({ summary: 'Get all products (paginated & filtered)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'minPrice', required: false, type: Number })
+  @ApiQuery({ name: 'maxPrice', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'List of products returned' })
   findAll(
     @Query() query: GetProductsQueryDto,
   ): Promise<PaginatedResult<Product>> {
@@ -38,6 +60,10 @@ export class ProductController {
 
   @Get(':id')
   @Roles('buyer', 'seller', 'admin', 'super-admin')
+  @ApiOperation({ summary: 'Get a single product by ID' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiResponse({ status: 200, description: 'Product retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
   getOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.svc.getByIdOrFail(id);
   }
@@ -45,6 +71,11 @@ export class ProductController {
   @Patch(':id')
   @Roles('seller', 'admin', 'super-admin')
   @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiOperation({ summary: 'Update product data and/or images' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiBody({ type: UpdateProductDto })
+  @ApiResponse({ status: 200, description: 'Product updated successfully' })
   update(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProductDto,
@@ -62,6 +93,10 @@ export class ProductController {
 
   @Delete(':id')
   @Roles('seller', 'admin', 'super-admin')
+  @ApiOperation({ summary: 'Delete a product by ID' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiResponse({ status: 200, description: 'Product deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
   delete(
   @Param('id', ParseObjectIdPipe) id: string,
   @Request() req: any,
