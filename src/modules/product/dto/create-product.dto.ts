@@ -14,7 +14,6 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   description: string;
-
   @ApiProperty({ example: 99999, description: 'Price in ETB' })
   @Type(() => Number)
   @IsNumber()
@@ -39,12 +38,11 @@ export class CreateProductDto {
   @IsString({ each: true })
   @IsOptional()
   images?: string[];
-
 @ApiProperty({ example: 50, description: 'Number of items in stock' })
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  stock_quantity: number;
+  stock_quantity: number
  @ApiPropertyOptional({ example: 10, description: 'Discount percentage (e.g. 10 = 10%)' })
   @Type(() => Number)
   @IsNumber()

@@ -15,7 +15,6 @@ import {
  ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
-
 @ApiTags('products')
 @ApiBearerAuth()
 @Controller('product')
@@ -97,6 +96,7 @@ export class ProductController {
   @ApiParam({ name: 'id', description: 'Product ID' })
   @ApiResponse({ status: 200, description: 'Product deleted successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
+
   delete(
   @Param('id', ParseObjectIdPipe) id: string,
   @Request() req: any,
