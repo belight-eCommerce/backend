@@ -113,6 +113,7 @@ describe('register (role validation)', () => {
     const result = await controller.register(dto as any);
     expect(mockAuthService.register).toHaveBeenCalledWith(dto);
     expect(result).toBe('registered3');
+  
   });
 });
 });
