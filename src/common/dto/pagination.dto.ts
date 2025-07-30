@@ -23,6 +23,6 @@ export class PaginationMeta {
 }
 
 export class PaginatedResult<T> {
-  data: T[];
+  items: T[];
   meta: PaginationMeta;
 }
