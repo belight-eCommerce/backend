@@ -1,4 +1,12 @@
-import {IsString,IsNotEmpty,IsOptional,IsNumber,Min,IsArray,ArrayNotEmpty,IsBoolean,} from 'class-validator';
+import {IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
+  Min,
+  IsArray,
+  ArrayNotEmpty,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   ApiProperty,
