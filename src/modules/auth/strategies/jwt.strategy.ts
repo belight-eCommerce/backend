@@ -1,14 +1,15 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {InvalidCredentialsException , EnviromentVariableNotFoundException} from 'src/exceptions/auth.exceptions';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
-      throw new Error('JWT_SECRET environment variable is not defined');
+      throw new EnviromentVariableNotFoundException('JWT_SECRET');
     }
 
     super({
@@ -20,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     if (!payload.sub) {
-      throw new UnauthorizedException('Invalid token payload');
+      throw new InvalidCredentialsException();
     }
     return { userId: payload.sub, email: payload.email, role: payload.role };
   }

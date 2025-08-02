@@ -1,100 +1,101 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { User, UserDocument } from './schemas/user.schema';
+import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-
-export interface PaginatedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+import { UsersRepository } from './repository/users.repository';
+import { CreateUserDto } from './dto/create-user.dto';
+import { CreateAdminDto } from './dto/create-admin-dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './schemas/user.schema';
+import { UserConflictException } from 'src/exceptions/user.exception';
+import {  GetUsersQueryDto } from './dto/get-user-query.dto';
+import { PaginatedResult } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-  ) {}
+  constructor(private readonly repo: UsersRepository) {}
 
-  async create(dto: CreateUserDto): Promise<User> {
-    const created = new this.userModel(dto);
-    return created.save();
+  async createUser(dto: CreateUserDto): Promise<User> {
+    await this.checkConflicts(dto.email, dto.phone);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.repo.create({ ...dto, password: hashedPassword });
   }
 
-  async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email }).exec();
+  async createAdmin(dto: CreateAdminDto): Promise<User> {
+    await this.checkConflicts(dto.email, dto.phone);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.repo.create({ ...dto, password: hashedPassword, role: 'admin',is_verified: true });
   }
 
-  async findByPhone(phone: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ phone }).exec();
-  }
+  async getUsersPaginated(
+      dto: GetUsersQueryDto
+    ): Promise<PaginatedResult<User>> {
+      const { page = 1, limit = 10 } = dto;
+      const { data, total, totalPages } =
+        await this.repo.findUsersPaginated(page, limit);
 
-  async findAll(): Promise<User[]> {
-    return this.userModel.find().exec();
-  }
-
-  async findOne(id: string): Promise<User> {
-    const user = await this.userModel.findById(id).exec();
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      return {
+        items: data,
+        meta: { total, page, limit, totalPages },
+      };
     }
-    return user;
+
+  async getUserByIdOrFail(id: string): Promise<User> {
+    return this.repo.findById(id);
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
-    const updated = await this.userModel
-      .findByIdAndUpdate(id, dto, { new: true })
-      .exec();
-    if (!updated) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+  async updateUser(id: string, dto: UpdateUserDto): Promise<User> {
+    if (dto.email || dto.phone) {
+      const value = dto.email ?? dto.phone;
+      if (typeof value === 'string') {
+        const existing = await this.repo.findByPhoneOrEmail(value);
+        if (existing && existing.id.toString() !== id) {
+          throw new UserConflictException(dto.email ? 'email' : 'phone');
+        }
+      }
     }
-    return updated;
+    return this.repo.update(id, dto);
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+  async deleteUser(id: string): Promise<void> {
+    await this.repo.delete(id);
   }
 
-  async findAllByRole(role: string) {
-    return this.userModel.find({ role }).select('-password');
-  }
-
-  async findAdminsPaginated(
-    role: string,
-    page: number = 1,
-    limit: number = 10,
+async getAdminsPaginated(
+    dto: GetUsersQueryDto
   ): Promise<PaginatedResult<User>> {
-    const filter = { role };
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 10 } = dto;
 
-    const [items, total] = await Promise.all([
-      this.userModel
-        .find(filter)
-        .select('-password')
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.userModel.countDocuments(filter).exec(),
-    ]);
-
-    const totalPages = Math.ceil(total / limit) || 1;
+    const { data: admins, total, totalPages } =
+      await this.repo.findAdminsPaginated('admin', page, limit);
 
     return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages,
-    };
+      items: admins,
+      meta: { total, page, limit, totalPages },
+    }
+  }
+
+  async findByEmail(email: string) {
+    return this.repo.findByEmail(email);
+  }
+
+  async findByPhone(phone: string) {
+    return this.repo.findByPhone(phone);
+  }
+
+  async findByPhoneOrEmail(value: string) {
+    return this.repo.findByPhoneOrEmail(value);
+  }
+
+  private async checkConflicts(email?: string, phone?: string) {
+    if (email) {
+      const exists = await this.repo.findByEmail(email);
+      if (exists) 
+        throw new UserConflictException('email');
+    }
+
+    if (phone) {
+      const exists = await this.repo.findByPhone(phone);
+      if (exists) 
+        throw new UserConflictException('phone');
+    }
   }
 }
-
-
-

@@ -4,8 +4,15 @@ import { CloudinaryService } from './cloudinary.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './schemas/product.schema';
-import {ProductNotFoundException,ProductOwnershipException,ProductImageLimitException,} from '../../exceptions/product.exceptions';
-import { PaginatedResult, PaginationMeta } from '../../common/dto/pagination.dto';
+import {
+  ProductNotFoundException,
+  ProductOwnershipException,
+  ProductImageLimitException,
+} from '../../exceptions/product.exceptions';
+import {
+  PaginatedResult,
+  PaginationMeta,
+} from '../../common/dto/pagination.dto';
 import { GetProductsQueryDto } from './dto/get-products-query.dto';
 
 @Injectable()
@@ -31,8 +38,7 @@ export class ProductService {
     return this.repo.create({ ...dto, images: imageUrls }, ownerId);
   }
 
- async findAll(query: GetProductsQueryDto): Promise<PaginatedResult<Product>> {
-  
+  async findAll(query: GetProductsQueryDto): Promise<PaginatedResult<Product>> {
     const filter: Record<string, any> = {};
 
     if (query.search) {
@@ -67,7 +73,7 @@ export class ProductService {
     const totalPages = Math.ceil(total / limit);
     const meta: PaginationMeta = { total, page, limit, totalPages };
 
-    return { data: items, meta };
+    return { items: items, meta };
   }
 
   async getByIdOrFail(id: string): Promise<Product> {

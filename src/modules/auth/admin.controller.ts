@@ -1,111 +1,102 @@
-import {Controller,Post,Body,UseGuards,ConflictException,Get,Param,Patch,Query,DefaultValuePipe,ParseIntPipe,} from '@nestjs/common';
-import {ApiTags,ApiBearerAuth,ApiOperation,ApiBody,ApiResponse,ApiConflictResponse,ApiBadRequestResponse,ApiParam,ApiOkResponse,ApiQuery,} from '@nestjs/swagger';
-import { UserService }           from '../user/user.service';
-import { JwtAuthGuard }          from '../auth/guards/jwt-auth.guard';
-import { RolesGuard }            from '../auth/guards/roles.guard';
-import { Roles }                 from '../auth/decorators/roles.decorator';
-import { UpdateAdminDto } from '../user/dto/update-admin-dto';
+import {Controller,Post,Patch,Delete,Get,Body,Param,Query,UseGuards,} from '@nestjs/common';
+import {ApiTags,ApiBearerAuth,ApiOperation,ApiResponse,ApiParam,ApiQuery,ApiBody,ApiUnauthorizedResponse,ApiForbiddenResponse,ApiNotFoundResponse,ApiBadRequestResponse,ApiConflictResponse,} from '@nestjs/swagger';
+import { UserService } from '../user/user.service';
 import { CreateAdminDto } from '../user/dto/create-admin-dto';
+import { UpdateUserDto } from '../user/dto/update-user.dto';
+import { GetUsersQueryDto } from '../user/dto/get-user-query.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('admin')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles('super-admin')
 export class AdminController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @Roles('super-admin')
   @ApiOperation({ summary: 'Create a new admin user' })
   @ApiBody({ type: CreateAdminDto })
-  @ApiResponse({status: 201,description: 'Admin created successfully',})
-  @ApiBadRequestResponse({ description: 'Validation failed (missing or invalid fields)' })
-  @ApiConflictResponse({ description: 'Email or phone already exists' })
+  @ApiResponse({ status: 201, description: 'Admin created successfully.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  @ApiConflictResponse({ description: 'Admin with given email or phone already exists.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
   async createAdmin(@Body() dto: CreateAdminDto) {
-    if (dto.email && (await this.userService.findByEmail(dto.email))) {
-      throw new ConflictException('Email already exists');
-    }
-    if (dto.phone && (await this.userService.findByPhone(dto.phone))) {
-      throw new ConflictException('Phone number already exists');
-    }
-    return this.userService.create({ ...dto, role: 'admin' });
+    return this.userService.createAdmin(dto);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get an admin user by ID' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Admin user ID' })
+  @ApiResponse({ status: 200, description: 'Returns the admin user.' })
+  @ApiNotFoundResponse({ description: 'Admin user not found.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
+  async findOne(@Param('id') id: string) {
+    return this.userService.getUserByIdOrFail(id);
   }
 
   @Get()
-  @Roles('super-admin')
-  @ApiOperation({ summary: 'List all admin users with pagination' })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number (default: 1)',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page (default: 10)',
-    example: 10,
-  })
-  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
-  @ApiOkResponse({
-    description: 'Paginated list of admin users',
-    schema: {
-      type: 'object',
-      properties: {
-        items: { type: 'array' },
-        total: { type: 'number', example: 50 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 10 },
-        totalPages: { type: 'number', example: 5 },
-      },
-    },
-  })
-  async listAdmins(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ) {
-    return this.userService.findAdminsPaginated('admin', page, limit);
+  @ApiOperation({ summary: 'Get paginated list of admin users' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiResponse({ status: 200, description: 'Returns paginated admins.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
+  async getAdmins(@Query() query: GetUsersQueryDto) {
+    const { items, meta } = await this.userService.getAdminsPaginated(query);
+    return { items, meta };
   }
 
   @Patch(':id')
-  @Roles('super-admin')
-  @ApiOperation({ summary: 'Update admin user by ID' })
-  @ApiParam({ name: 'id', description: 'Admin user ID' })
-  @ApiBody({ type: UpdateAdminDto })
-  @ApiOkResponse({description: 'Admin updated successfully',})
-  @ApiBadRequestResponse({ description: 'Validation failed (invalid ID or body).' })
-  @ApiConflictResponse({description: 'Cannot change role to anything other than admin',})
+  @ApiOperation({ summary: 'Update an admin user' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Admin user ID' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({ status: 200, description: 'Admin updated successfully.' })
+  @ApiNotFoundResponse({ description: 'Admin user not found.' })
+  @ApiBadRequestResponse({ description: 'Invalid update data.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
   async updateAdmin(
     @Param('id') id: string,
-    @Body() dto: UpdateAdminDto,
+    @Body() dto: UpdateUserDto
   ) {
-    if (dto.role && dto.role !== 'admin') {
-      throw new ConflictException(
-        'Cannot change role to anything other than admin',
-      );
-    }
-    return this.userService.update(id, { ...dto, role: 'admin' });
+    return this.userService.updateUser(id, dto);
   }
 
   @Patch(':id/deactivate')
-  @Roles('super-admin')
-  @ApiOperation({ summary: 'Deactivate an admin account' })
-  @ApiParam({ name: 'id', description: 'Admin user ID' })
-  @ApiBadRequestResponse({ description: 'Invalid ID parameter.' })
-  @ApiOkResponse({description: 'Admin deactivated successfully',})
+  @ApiOperation({ summary: 'Deactivate an admin user' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Admin user ID' })
+  @ApiResponse({ status: 200, description: 'Admin deactivated successfully.' })
+  @ApiNotFoundResponse({ description: 'Admin user not found.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
   async deactivateAdmin(@Param('id') id: string) {
-    return this.userService.update(id, { isActive: false });
+    return this.userService.updateUser(id, { isActive: false });
   }
 
   @Patch(':id/activate')
-  @Roles('super-admin')
-  @ApiOperation({ summary: 'Activate an admin account' })
-  @ApiParam({ name: 'id', description: 'Admin user ID' })
-  @ApiBadRequestResponse({ description: 'Invalid ID parameter.' })
-  @ApiOkResponse({description: 'Admin activated successfully',})
+  @ApiOperation({ summary: 'Activate an admin user' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Admin user ID' })
+  @ApiResponse({ status: 200, description: 'Admin activated successfully.' })
+  @ApiNotFoundResponse({ description: 'Admin user not found.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
   async activateAdmin(@Param('id') id: string) {
-    return this.userService.update(id, { isActive: true });
+    return this.userService.updateUser(id, { isActive: true });
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete an admin user' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Admin user ID' })
+  @ApiResponse({ status: 200, description: 'Admin deleted successfully.' })
+  @ApiNotFoundResponse({ description: 'Admin user not found.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
+  @ApiForbiddenResponse({ description: 'Forbidden. Requires super-admin role.' })
+  async deleteAdmin(@Param('id') id: string) {
+    return this.userService.deleteUser(id);
   }
 }
