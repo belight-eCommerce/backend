@@ -7,6 +7,14 @@ import { ResponseWrapInterceptor } from './common/interceptors/response-wrap.int
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true, 
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
